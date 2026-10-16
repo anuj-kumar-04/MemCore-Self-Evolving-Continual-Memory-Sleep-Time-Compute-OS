@@ -28,40 +28,113 @@ MemCore is a distributed, self-evolving continual memory operating system that m
 ## 2. Cognitive Memory Architecture (3-Tier Hierarchy)
 
 ```mermaid
-graph TD
-    subgraph Tier1 ["Tier 1: Working Memory (Redis)"]
-        WM1["Sorted Sets + TTL"]
-        WM2["Sliding Window (Last 6 Raw Turns)"]
-        WM3["Session Inactivity Tracker"]
+flowchart TB
+    %% Styling & Classes
+    classDef clientStyle fill:#1e293b,stroke:#00f0ff,stroke-width:2px,color:#f8fafc;
+    classDef gatewayStyle fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef fastPathStyle fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+    classDef sleepPathStyle fill:#3b0764,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
+    classDef tier1Style fill:#18181b,stroke:#ef4444,stroke-width:2px,color:#f8fafc;
+    classDef tier2Style fill:#18181b,stroke:#06b6d4,stroke-width:2px,color:#f8fafc;
+    classDef tier3Style fill:#18181b,stroke:#eab308,stroke-width:2px,color:#f8fafc;
+    classDef llmStyle fill:#0284c7,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+
+    %% Client & Gateway
+    User["👤 User / IDE Client"]:::clientStyle
+    UI["🖥️ Neuro-Visualizer Web UI (:8000)"]:::clientStyle
+    Gateway["⚡ FastAPI Application Gateway (src/api)"]:::gatewayStyle
+
+    User --> Gateway
+    UI --> Gateway
+
+    %% Path A: Fast Path
+    subgraph FastPath ["PATH A: Real-Time Fast Path (<50ms Context Assembly)"]
+        Compiler["🧩 Submodular Context Compiler<br/>(Enforces Strict 2,000-Token Budget)"]:::fastPathStyle
+        LLM["🤖 LLM Inference (Groq / LiteLLM / Grounded)"]:::llmStyle
     end
 
-    subgraph Tier2 ["Tier 2: Episodic & Bi-Temporal Semantic Memory (PostgreSQL 16 + pgvector)"]
-        BT1["Bi-Temporal Graph Edges (valid_from, valid_until)"]
-        BT2["HNSW Vector Index (Cosine Distance)"]
-        BT3["Episodic Narrative Milestones"]
+    %% Path B: Sleep-Time Compute Daemon
+    subgraph SleepPath ["PATH B: Asynchronous Sleep-Time Compute Daemon (Celery Worker)"]
+        Trigger["⏰ Inactivity Timer (5m) / Batch Threshold / Manual API"]:::sleepPathStyle
+        Extractor["1️⃣ Structured LLM Extractor<br/>(Pydantic Triplets & Corrections)"]:::sleepPathStyle
+        Resolver["2️⃣ Bi-Temporal Conflict Resolver<br/>(NOOP | CONTRADICTION | NEW_FACT)"]:::sleepPathStyle
+        Distiller["3️⃣ Procedural Playbook Distiller<br/>(Compiles Learned Rules & Patches)"]:::sleepPathStyle
+        Flusher["4️⃣ Working Memory Buffer Flush"]:::sleepPathStyle
     end
 
-    subgraph Tier3 ["Tier 3: Procedural Memory (PostgreSQL JSONB + Redis Cache)"]
-        PM1["Self-Evolving Playbook"]
-        PM2["Pre-compiled [SYSTEM INSTRUCTION PATCH]"]
-        PM3["Reinforced Behavioral Rules"]
+    %% Memory Tiers
+    subgraph Tiers ["3-TIER COGNITIVE MEMORY HIERARCHY"]
+        subgraph Tier1 ["Tier 1: Working Memory (Redis)"]
+            WM["• Sliding Window: Last 6 Raw Turns<br/>• Inactivity Epoch Tracker (TTL)<br/>• Scratchpad Key-Value Hash"]:::tier1Style
+        end
+
+        subgraph Tier2 ["Tier 2: Bi-Temporal Knowledge Graph & Episodic (PostgreSQL 16 + pgvector)"]
+            KG["• Bi-Temporal Edges: valid_from, valid_until, observed_at<br/>• Superseded Pointer (Historical Audit)<br/>• HNSW Vector Cosine Index (384-dim)<br/>• Episodic Narrative Milestones"]:::tier2Style
+        end
+
+        subgraph Tier3 ["Tier 3: Procedural Memory (PostgreSQL JSONB + Redis Cache)"]
+            PM["• Self-Evolving User Behavioral Rulebook<br/>• Pre-compiled [SYSTEM INSTRUCTION PATCH]<br/>• Sub-millisecond Redis Cache"]:::tier3Style
+        end
     end
 
-    UserMessage["User Message"] --> FastPath["Path A: Real-Time Fast Path (<50ms)"]
-    FastPath --> Tier1
-    FastPath --> Tier2
-    FastPath --> Tier3
-    FastPath --> ContextCompiler["Submodular Context Compiler (2,000 Tokens)"]
-    ContextCompiler --> LLMStream["LLM Generation"]
+    %% Interactions - Fast Path
+    Gateway -->|"1. Fetch Rule Patch (<1ms)"| PM
+    Gateway -->|"2. Hybrid Retrieve: Active Edges (valid_until IS NULL) + HNSW"| KG
+    Gateway -->|"3. Fetch Recent Turns (<3ms)"| WM
+    PM --> Compiler
+    KG --> Compiler
+    WM --> Compiler
+    Compiler -->|"Budgeted Context (<50ms)"| LLM
+    LLM -->|"Stream Response"| User
+    Gateway -->|"Sync Append Turn (<5ms) & Reset Timer"| WM
 
-    IdleTrigger["Session Inactivity / Idle Trigger"] --> SleepWorker["Path B: Sleep-Time Compute Daemon (Celery)"]
-    SleepWorker --> Extractor["1. Structured Extractor"]
-    SleepWorker --> ConflictResolver["2. Bi-Temporal Conflict Resolver (NOOP / CONTRADICTION / NEW_FACT)"]
-    SleepWorker --> PlaybookDistiller["3. Procedural Playbook Distiller"]
-    PlaybookDistiller --> Tier3
-    ConflictResolver --> Tier2
-    SleepWorker --> FlushBuffer["Flush / Trim Working Buffer"]
-    FlushBuffer --> Tier1
+    %% Interactions - Sleep Path
+    WM -->|"Trigger on Idle / Threshold"| Trigger
+    Trigger --> Extractor
+    WM -->|"Pull Unconsolidated Turns"| Extractor
+    Extractor -->|"Raw Triplets"| Resolver
+    Resolver -->|"Mutate Graph: Expire Old Edge (valid_until=NOW) & Insert New"| KG
+    Extractor -->|"Detected Corrections"| Distiller
+    Distiller -->|"Upsert Rule JSONB & Invalidate Cache"| PM
+    Distiller --> Flusher
+    Flusher -->|"Trim Sliding Buffer"| WM
+```
+
+### Bi-Temporal State Transition (Zero Memory Poisoning)
+
+This state machine illustrates how MemCore resolves factual contradictions without deleting history:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    state "January 2026 Fact Assertion" as S1 {
+        MySQL_Active: Subject: 'backend'\nPredicate: 'USES_DB'\nObject: 'MySQL'\nvalid_from: '2026-01-15'\nvalid_until: NULL (ACTIVE TRUTH)\nobserved_at: '2026-01-15'
+    }
+
+    state "October 2026 Contradiction Assertion" as S2 {
+        MySQL_Expired: Subject: 'backend'\nPredicate: 'USES_DB'\nObject: 'MySQL'\nvalid_from: '2026-01-15'\nvalid_until: '2026-10-16' (EXPIRED)\nsuperseded_by: UUID(PostgreSQL_16)
+        
+        Postgres_Active: Subject: 'backend'\nPredicate: 'USES_DB'\nObject: 'PostgreSQL 16'\nvalid_from: '2026-10-16'\nvalid_until: NULL (ACTIVE TRUTH)\nobserved_at: '2026-10-16'
+    }
+
+    [*] --> S1: User says: 'Our backend runs on MySQL'
+    S1 --> S2: Sleep Worker Resolves Contradiction:\n'We migrated completely to PostgreSQL 16'
+    
+    note right of S2
+        Fast-Path Query (NOW):
+        WHERE valid_until IS NULL
+        -> Retrieves PostgreSQL 16 only!
+        (Zero Poisoning / Hallucination)
+    end note
+
+    note left of S2
+        Time-Travel Query (as_of = Jan 2026):
+        WHERE valid_from <= '2026-01-20'
+        AND (valid_until IS NULL OR valid_until > '2026-01-20')
+        -> Accurately reconstructs MySQL!
+        (100% Historical Auditability)
+    end note
 ```
 
 ---
