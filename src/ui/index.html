@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MemCore — Self-Evolving Continual Memory & Sleep-Time Compute OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: rgba(16, 23, 38, 0.75);
+      --bg-card-hover: rgba(22, 32, 54, 0.85);
+      --bg-surface: #0e1526;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(0, 240, 255, 0.25);
+      
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.4);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.4);
+      --violet: #8b5cf6;
+      --amber: #f59e0b;
+      --crimson: #ef4444;
+      
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(0, 240, 255, 0.07) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    /* Top Navigation */
+    header {
+      backdrop-filter: blur(16px);
+      background: rgba(7, 9, 14, 0.85);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #00f0ff, #8b5cf6);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.3rem;
+      color: #07090e;
+    }
+
+    .brand-title h1 {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #fff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-title p {
+      font-size: 0.75rem;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #00f0ff, #00b4d8);
+      color: #050b14;
+      box-shadow: 0 2px 14px rgba(0, 240, 255, 0.25);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 4px 22px rgba(0, 240, 255, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-sleep {
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      color: #fff;
+      box-shadow: 0 2px 14px rgba(139, 92, 246, 0.3);
+    }
+
+    .btn-sleep:hover {
+      box-shadow: 0 4px 22px rgba(139, 92, 246, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* Container Layout */
+    .container {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem 3rem 2rem;
+    }
+
+    /* Topology Banner */
+    .topology-strip {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 1.1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .path-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 0.75rem;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 4px solid var(--cyan);
+    }
+
+    .path-card.path-b {
+      border-left-color: var(--violet);
+    }
+
+    .path-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-cyan { background: rgba(0, 240, 255, 0.15); color: var(--cyan); border: 1px solid rgba(0, 240, 255, 0.3); }
+    .badge-violet { background: rgba(139, 92, 246, 0.15); color: var(--violet); border: 1px solid rgba(139, 92, 246, 0.3); }
+    .badge-emerald { background: rgba(16, 185, 129, 0.15); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-crimson { background: rgba(239, 68, 68, 0.15); color: var(--crimson); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .path-info h4 {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .path-info p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Main Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr 400px;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1400px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .col-chat {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      .topology-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Card Panels */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(14px);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .panel-body {
+      padding: 1.25rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Tier 1: Working Memory Visualizer */
+    .tier-stat-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .turns-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .turn-bubble {
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .turn-bubble.user {
+      border-left: 3px solid var(--cyan);
+    }
+
+    .turn-bubble.assistant {
+      border-left: 3px solid var(--emerald);
+    }
+
+    .turn-meta {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      margin-bottom: 0.25rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Tier 2: Bi-Temporal Knowledge Graph */
+    .time-travel-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .time-travel-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .slider-container input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .slider-container input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--cyan);
+    }
+
+    .graph-edges-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .edge-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .edge-card.active {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.05);
+      box-shadow: inset 0 0 14px rgba(16, 185, 129, 0.08);
+    }
+
+    .edge-card.expired {
+      border-color: rgba(239, 68, 68, 0.3);
+      background: rgba(239, 68, 68, 0.04);
+      opacity: 0.75;
+    }
+
+    .edge-triplet {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .edge-triplet .subject { color: var(--cyan); }
+    .edge-triplet .predicate { color: var(--violet); font-size: 0.75rem; }
+    .edge-triplet .object { color: #f1f5f9; }
+
+    .edge-meta {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    /* Tier 3: Procedural Playbook */
+    .playbook-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .rule-card {
+      background: rgba(139, 92, 246, 0.06);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 10px;
+      padding: 0.85rem;
+    }
+
+    .rule-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.3rem;
+    }
+
+    .rule-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .patch-preview {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      max-height: 180px;
+      overflow-y: auto;
+      margin-top: 0.75rem;
+    }
+
+    /* Live Chat & Context Compiler */
+    .telemetry-bar {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .meter-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .meter-track {
+      height: 8px;
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--emerald));
+      width: 15%;
+      transition: width 0.3s ease;
+    }
+
+    .chat-window {
+      display: flex;
+      flex-direction: column;
+      height: 520px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .chat-msg {
+      max-width: 85%;
+      padding: 0.85rem 1.1rem;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(0, 180, 216, 0.3));
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #fff;
+    }
+
+    .chat-msg.assistant {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: #f1f5f9;
+    }
+
+    .chat-msg pre {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.6rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      margin: 0.5rem 0;
+      overflow-x: auto;
+    }
+
+    .chat-input-area {
+      padding: 1rem;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    /* Pulse animation */
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 10px var(--emerald);
+      animation: pulse 1.8s infinite;
+      display: inline-block;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 0.4; transform: scale(0.9); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">M</div>
+      <div class="brand-title">
+        <h1>MemCore OS</h1>
+        <p>Continual Memory & Sleep-Time Compute</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="seedScenario('temporal_contradiction')">
+        <span>🔄</span> Seed Temporal Contradiction
+      </button>
+      <button class="btn btn-secondary" onclick="seedScenario('procedural_evolution')">
+        <span>🧠</span> Seed Procedural Correction
+      </button>
+      <button class="btn btn-sleep" onclick="triggerSleepConsolidation()">
+        <span>🌙</span> Trigger Sleep Compute
+      </button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Dual-Path System Topology Banner -->
+    <div class="topology-strip">
+      <div class="path-card">
+        <span class="path-badge badge-cyan">Path A</span>
+        <div class="path-info">
+          <h4>Real-Time Fast Path <span class="pulse-dot"></span> <small style="color:var(--cyan); font-family:var(--font-mono);">&lt;45ms</small></h4>
+          <p>Zero LLM overhead retrieval: Redis Working Memory + Active Knowledge Graph (`valid_until IS NULL`) + 2,000-Token Submodular Budget Enforcer.</p>
+        </div>
+      </div>
+      <div class="path-card path-b">
+        <span class="path-badge badge-violet">Path B</span>
+        <div class="path-info">
+          <h4>Sleep-Time Compute Daemon <small style="color:var(--violet); font-family:var(--font-mono);">Asynchronous</small></h4>
+          <p>Awakens on idle: (1) Structured Extractor ➔ (2) Bi-temporal Conflict Resolver ➔ (3) Procedural Playbook Distiller. Zero live latency penalty.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3-Tier Cognitive Grid -->
+    <div class="dashboard-grid">
+      
+      <!-- Tier 1 & Tier 3 Column -->
+      <div style="display:flex; flex-direction:column; gap:1.5rem;">
+        
+        <!-- Tier 1: Working Memory -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>⚡</span> Tier 1: Working Memory
+            </div>
+            <span class="path-badge badge-cyan">Redis Sorted Sets</span>
+          </div>
+          <div class="panel-body">
+            <div class="tier-stat-row">
+              <div class="stat-box">
+                <div class="stat-val" id="val-total-turns">0</div>
+                <div class="stat-label">Buffered Turns</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-val" id="val-unconsolidated">0</div>
+                <div class="stat-label">Pending Sleep</div>
+              </div>
+            </div>
+            <h5 style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:0.5rem; letter-spacing:0.05em;">Sliding Window Buffer</h5>
+            <div class="turns-stream" id="working-memory-stream">
+              <div style="color:var(--text-dim); font-size:0.8rem; text-align:center; padding:1.5rem;">Buffer empty. Send a message to stream turns.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tier 3: Procedural Playbook -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>📚</span> Tier 3: Procedural Playbook
+            </div>
+            <span class="path-badge badge-violet">Self-Evolving</span>
+          </div>
+          <div class="panel-body">
+            <div class="playbook-container" id="playbook-rules-list">
+              <div style="color:var(--text-dim); font-size:0.8rem; text-align:center; padding:1.5rem;">No rules learned yet. Seed corrections or instruct the bot.</div>
+            </div>
+            <h5 style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin:1rem 0 0.3rem 0; letter-spacing:0.05em;">Compiled System Patch (Redis)</h5>
+            <div class="patch-preview" id="patch-preview-text">System patch empty.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tier 2: Bi-Temporal Knowledge Graph Center -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>🕸️</span> Tier 2: Bi-Temporal Knowledge Graph
+          </div>
+          <span class="path-badge badge-emerald">pgvector + Edges</span>
+        </div>
+        <div class="panel-body">
+          
+          <!-- Time Travel Scrubber -->
+          <div class="time-travel-box">
+            <div class="time-travel-header">
+              <span style="font-weight:600; color:var(--cyan);">⏳ Time-Travel Historical Audit</span>
+              <span id="time-travel-label" style="font-family:var(--font-mono); color:var(--text-muted);">Current Time (NOW)</span>
+            </div>
+            <div class="slider-container">
+              <input type="range" id="time-slider" min="0" max="100" value="100" oninput="handleTimeTravel(this.value)">
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-dim); margin-top:0.3rem;">
+              <span>January 2026 (MySQL)</span>
+              <span>October 2026 (PostgreSQL 16)</span>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+            <h5 style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em;">Graph Edges Registry</h5>
+            <div style="display:flex; gap:0.5rem; font-size:0.7rem;">
+              <span class="badge-emerald" style="padding:0.15rem 0.4rem; border-radius:4px;">● Active Truth</span>
+              <span class="badge-crimson" style="padding:0.15rem 0.4rem; border-radius:4px;">✕ Expired / Audited</span>
+            </div>
+          </div>
+
+          <div class="graph-edges-list" id="graph-edges-container">
+            <div style="color:var(--text-dim); font-size:0.8rem; text-align:center; padding:2rem;">No knowledge graph edges stored yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Fast-Path Chat & Submodular Budget Sandbox -->
+      <div class="panel col-chat">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>💬</span> Fast-Path Chat Sandbox
+          </div>
+          <span class="path-badge badge-cyan" id="fast-path-latency">&lt;2ms Context Assembly</span>
+        </div>
+        <div class="panel-body chat-window" style="padding:0;">
+          
+          <!-- Telemetry Meter -->
+          <div style="padding:1rem 1.25rem 0 1.25rem;">
+            <div class="telemetry-bar">
+              <div class="meter-row">
+                <span style="color:var(--text-muted);">Strict 2,000-Token Budget:</span>
+                <span id="telemetry-token-txt" style="font-family:var(--font-mono); color:var(--cyan); font-weight:700;">340 / 2000 tokens</span>
+              </div>
+              <div class="meter-track">
+                <div class="meter-fill" id="telemetry-token-bar"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-dim); margin-top:0.35rem;">
+                <span id="telemetry-breakdown-facts">Facts: 80t</span>
+                <span id="telemetry-breakdown-playbook">Playbook: 140t</span>
+                <span id="telemetry-breakdown-working">Working: 120t</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat messages stream -->
+          <div class="chat-messages" id="chat-messages-container">
+            <div class="chat-msg assistant">
+              Hello! I am <strong>MemCore AI</strong>. I maintain a bi-temporal knowledge graph to prevent memory poisoning, enforce strict procedural rules, and compile context in &lt;45ms. Ask me about your database, framework, or instructions!
+            </div>
+          </div>
+
+          <!-- Input bar -->
+          <div class="chat-input-area">
+            <input type="text" id="chat-input-field" class="chat-input" placeholder="Type a message (e.g. 'Write a database migration script for our backend')..." onkeydown="if(event.key==='Enter') sendMessage()">
+            <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const USER_ID = "demo_user";
+    const SESSION_ID = "demo_session";
+    let isTimeTravelMode = false;
+
+    // Load initial states
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshAll();
+    });
+
+    async function refreshAll() {
+      await Promise.all([
+        refreshWorkingMemory(),
+        refreshGraph(),
+        refreshPlaybook()
+      ]);
+    }
+
+    async function refreshWorkingMemory() {
+      try {
+        const res = await fetch(`/api/v1/memory/working/${USER_ID}/${SESSION_ID}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        document.getElementById('val-total-turns').textContent = data.stats.total_turns_buffered || 0;
+        document.getElementById('val-unconsolidated').textContent = data.stats.unconsolidated_turns || 0;
+
+        const container = document.getElementById('working-memory-stream');
+        if (!data.recent_turns || data.recent_turns.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; text-align:center; padding:1.5rem;">Buffer empty. Send a message to stream turns.</div>';
+          return;
+        }
+
+        container.innerHTML = data.recent_turns.map(t => `
+          <div class="turn-bubble ${t.role}">
+            <div class="turn-meta">
+              <span style="font-weight:700; text-transform:uppercase;">${t.role}</span>
+              <span>${new Date(t.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div>${escapeHtml(t.content)}</div>
+          </div>
+        `).join('');
+        container.scrollTop = container.scrollHeight;
+      } catch (err) {
+        console.error("Error refreshing working memory:", err);
+      }
+    }
+
+    async function refreshGraph(asOfTime = null) {
+      try {
+        let url = `/api/v1/memory/graph/${USER_ID}`;
+        if (asOfTime) {
+          const res = await fetch(`/api/v1/memory/time-travel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: USER_ID, as_of_time: asOfTime })
+          });
+          const ttData = await res.json();
+          renderEdges(ttData.active_facts, ttData.expired_facts);
+          return;
+        }
+
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        const active = data.edges.filter(e => e.valid_until === null);
+        const expired = data.edges.filter(e => e.valid_until !== null);
+        renderEdges(active, expired);
+      } catch (err) {
+        console.error("Error refreshing graph:", err);
+      }
+    }
+
+    function renderEdges(activeEdges, expiredEdges) {
+      const container = document.getElementById('graph-edges-container');
+      const all = [...activeEdges, ...expiredEdges];
+      if (all.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; text-align:center; padding:2rem;">No knowledge graph edges stored yet.</div>';
+        return;
+      }
+
+      container.innerHTML = all.map(edge => {
+        const isActive = edge.valid_until === null;
+        return `
+          <div class="edge-card ${isActive ? 'active' : 'expired'}">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+              <span class="path-badge ${isActive ? 'badge-emerald' : 'badge-crimson'}">
+                ${isActive ? 'ACTIVE TRUTH' : 'SUPERSEDED / EXPIRED'}
+              </span>
+              <span style="font-size:0.7rem; color:var(--text-dim); font-family:var(--font-mono);">Confidence: ${(edge.confidence || 1).toFixed(2)}</span>
+            </div>
+            <div class="edge-triplet">
+              <span class="subject">${escapeHtml(edge.subject)}</span>
+              <span class="predicate">→ ${escapeHtml(edge.predicate)} →</span>
+              <span class="object">${escapeHtml(edge.object)}</span>
+            </div>
+            <div class="edge-meta">
+              <span><strong>valid_from:</strong> ${new Date(edge.valid_from).toLocaleDateString()}</span>
+              <span><strong>valid_until:</strong> ${edge.valid_until ? new Date(edge.valid_until).toLocaleDateString() : 'NULL (Current)'}</span>
+              ${edge.superseded_by ? `<span><strong>Superseded by:</strong> ${edge.superseded_by.slice(0, 8)}...</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function refreshPlaybook() {
+      try {
+        const res = await fetch(`/api/v1/memory/playbook/${USER_ID}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const container = document.getElementById('playbook-rules-list');
+        if (!data.rules || data.rules.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; text-align:center; padding:1.5rem;">No rules learned yet. Seed corrections or instruct the bot.</div>';
+          document.getElementById('patch-preview-text').textContent = 'System patch empty.';
+          return;
+        }
+
+        container.innerHTML = data.rules.map(r => `
+          <div class="rule-card">
+            <div class="rule-header">
+              <span class="path-badge badge-violet">${r.category}</span>
+              <span style="font-size:0.7rem; color:var(--text-dim); font-family:var(--font-mono);">${r.occurrences}x reinforced</span>
+            </div>
+            <div class="rule-title">${escapeHtml(r.rule)}</div>
+            ${r.source_correction ? `<div style="font-size:0.7rem; color:var(--text-dim); margin-top:0.3rem;"><em>Correction: "${escapeHtml(r.source_correction)}"</em></div>` : ''}
+          </div>
+        `).join('');
+
+        document.getElementById('patch-preview-text').textContent = data.system_patch || 'Empty system patch.';
+      } catch (err) {
+        console.error("Error refreshing playbook:", err);
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chat-input-field');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      appendChatMessage('user', text);
+
+      try {
+        const res = await fetch('/api/v1/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            user_id: USER_ID,
+            session_id: SESSION_ID
+          })
+        });
+
+        if (!res.ok) throw new Error("Chat request failed");
+        const data = await res.json();
+        
+        appendChatMessage('assistant', data.response);
+
+        // Update telemetry
+        const tel = data.context_telemetry;
+        if (tel) {
+          document.getElementById('fast-path-latency').textContent = `${tel.latency_ms}ms Context Assembly`;
+          document.getElementById('telemetry-token-txt').textContent = `${tel.tokens_used} / ${tel.token_budget} tokens`;
+          const pct = Math.min(100, Math.round((tel.tokens_used / tel.token_budget) * 100));
+          document.getElementById('telemetry-token-bar').style.width = `${pct}%`;
+          
+          document.getElementById('telemetry-breakdown-facts').textContent = `Facts: ${tel.breakdown.active_facts_tokens || 0}t`;
+          document.getElementById('telemetry-breakdown-playbook').textContent = `Playbook: ${tel.breakdown.playbook_tokens || 0}t`;
+          document.getElementById('telemetry-breakdown-working').textContent = `Working: ${tel.breakdown.working_memory_tokens || 0}t`;
+        }
+
+        refreshWorkingMemory();
+      } catch (err) {
+        appendChatMessage('assistant', `Error: ${err.message}`);
+      }
+    }
+
+    function appendChatMessage(role, text) {
+      const container = document.getElementById('chat-messages-container');
+      const msg = document.createElement('div');
+      msg.className = `chat-msg ${role}`;
+      // Basic markdown code formatting
+      let formatted = escapeHtml(text).replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+      formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      msg.innerHTML = formatted;
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function triggerSleepConsolidation() {
+      const btn = document.querySelector('.btn-sleep');
+      btn.textContent = 'Consolidating...';
+      try {
+        const res = await fetch('/api/v1/sleep/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: USER_ID, session_id: SESSION_ID, force: true })
+        });
+        const data = await res.json();
+        alert(`🌙 Sleep-Time Consolidation Complete!\n${data.message}\nContradictions Resolved: ${data.summary.contradictions_resolved}\nNew Facts: ${data.summary.new_facts_added}\nRules Distilled: ${data.summary.rules_distilled}`);
+        refreshAll();
+      } catch (err) {
+        alert("Sleep trigger error: " + err.message);
+      } finally {
+        btn.innerHTML = '<span>🌙</span> Trigger Sleep Compute';
+      }
+    }
+
+    async function seedScenario(scenarioName) {
+      try {
+        const res = await fetch('/api/v1/demo/seed-scenario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scenario: scenarioName,
+            user_id: USER_ID,
+            session_id: SESSION_ID
+          })
+        });
+        const data = await res.json();
+        alert(`✅ Seeded '${scenarioName}' scenario!\nInspect the updated Bi-Temporal Graph and Procedural Playbook.`);
+        refreshAll();
+      } catch (err) {
+        alert("Error seeding scenario: " + err.message);
+      }
+    }
+
+    function handleTimeTravel(sliderValue) {
+      const label = document.getElementById('time-travel-label');
+      if (sliderValue < 40) {
+        // January 2026
+        const janTime = new Date('2026-01-20T00:00:00Z').toISOString();
+        label.textContent = "Auditing: January 2026 (Historical)";
+        refreshGraph(janTime);
+      } else {
+        // Current Time
+        label.textContent = "Current Time (NOW - October 2026)";
+        refreshGraph(null);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
