@@ -27,6 +27,10 @@ MemCore is a distributed, self-evolving continual memory operating system that m
 
 ## 2. Cognitive Memory Architecture (3-Tier Hierarchy)
 
+<p align="center">
+  <img src="assets/memcore_architecture.jpg" alt="MemCore Architecture Diagram" width="100%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+</p>
+
 ```mermaid
 flowchart TB
     %% Styling & Classes
